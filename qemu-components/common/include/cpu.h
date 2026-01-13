@@ -27,6 +27,8 @@
 #include "tlm-extensions/qemu-cpu-hint.h"
 #include "ports/qemu-target-signal-socket.h"
 
+#include <libqemu-cxx/target/aarch64.h>
+
 class QemuCpu : public QemuDevice, public QemuInitiatorIface
 {
 protected:
@@ -397,11 +399,13 @@ public:
     QemuInitiatorSocket<> socket;
     TargetSignalSocket<bool> halt;
     TargetSignalSocket<bool> reset;
+    TargetSignalSocket<bool> power_on;
 
     QemuCpu(const sc_core::sc_module_name& name, QemuInstance& inst, const std::string& type_name)
         : QemuDevice(name, inst, (type_name + "-cpu").c_str())
         , halt("halt")
         , reset("reset")
+        , power_on("power_on")
         , m_qemu_kick_ev(false)
         , m_signaled(false)
         , p_gdb_port("gdb_port", 0, "Wait for gdb connection on TCP port <gdb_port>")
@@ -415,6 +419,8 @@ public:
         halt.register_value_changed_cb(haltcb);
         auto resetcb = std::bind(&QemuCpu::reset_cb, this, _1);
         reset.register_value_changed_cb(resetcb);
+        auto poweroncb = std::bind(&QemuCpu::power_on_cb, this, _1);
+        power_on.register_value_changed_cb(poweroncb);
 
         create_quantum_keeper();
         set_coroutine_mode();
@@ -537,6 +543,44 @@ public:
         m_deadline_timer->set_callback(std::bind(&QemuCpu::deadline_timer_cb, this));
 
         m_cpu_hint_ext.set_cpu(m_cpu);
+    }
+
+    void power_on_cb(const bool& val)
+    {
+        int ret;
+        // Cast to CpuArm to access ARM-specific methods
+        qemu::CpuArm* arm_cpu = static_cast<qemu::CpuArm*>(&m_cpu);
+
+        m_inst.get().lock_iothread();
+
+        if (val) {
+            SCP_INFO(())("Power ON request for CPU");
+            ret = arm_cpu->arm_set_cpu_on_and_reset();
+        } else {
+            SCP_INFO(())("Power OFF request for CPU");
+            ret = arm_cpu->arm_set_cpu_off();
+        }
+
+        m_inst.get().unlock_iothread();
+        m_qemu_kick_ev.async_notify();
+
+        switch (ret) {
+        case 0: // QEMU_ARM_POWERCTL_RET_SUCCESS
+            SCP_INFO(())("arm power control success: CPU Power {}", val ? "ON" : "OFF");
+            break;
+        case -2: // QEMU_ARM_POWERCTL_INVALID_PARAM
+            SCP_WARN(())("arm power control failed: Invalid Parameters (CPU not found)");
+            break;
+        case -3: // QEMU_ARM_POWERCTL_IS_OFF (= PSCI_RET_DENIED) — arm_set_cpu_off only
+            SCP_WARN(())("arm_set_cpu_off failed: CPU Already OFF");
+            break;
+        case -4: // QEMU_ARM_POWERCTL_ALREADY_ON — arm_set_cpu_on_and_reset only
+            SCP_WARN(())("arm_set_cpu_on_and_reset failed: CPU Already ON");
+            break;
+        case -5: // QEMU_ARM_POWERCTL_ON_PENDING — arm_set_cpu_on_and_reset only
+            SCP_WARN(())("arm_set_cpu_on_and_reset failed: CPU Power ON is pending");
+            break;
+        }
     }
 
     void halt_cb(const bool& val)
