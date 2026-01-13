@@ -104,6 +104,58 @@ void Object::set_prop_parse(const char* name, const char* value)
     }
 }
 
+bool Object::get_prop_bool(const char* name)
+{
+    QemuError* e = nullptr;
+
+    bool value = m_int->exports().object_property_get_bool(m_obj, name, &e);
+
+    if (e != nullptr) {
+        throw GetPropertyException("bool", name, m_int->exports().error_get_pretty(e));
+    }
+
+    return value;
+}
+
+int Object::get_prop_int(const char* name)
+{
+    QemuError* e = nullptr;
+
+    int value = m_int->exports().object_property_get_int(m_obj, name, &e);
+
+    if (e != nullptr) {
+        throw GetPropertyException("int", name, m_int->exports().error_get_pretty(e));
+    }
+
+    return value;
+}
+
+uint64_t Object::get_prop_uint(const char* name)
+{
+    QemuError* e = nullptr;
+
+    uint64_t value = m_int->exports().object_property_get_uint(m_obj, name, &e);
+
+    if (e != nullptr) {
+        throw GetPropertyException("int", name, m_int->exports().error_get_pretty(e));
+    }
+
+    return value;
+}
+
+const char* Object::get_prop_str(const char* name)
+{
+    QemuError* e = nullptr;
+
+    const char* value = m_int->exports().object_property_get_str(m_obj, name, &e);
+
+    if (e != nullptr) {
+        throw GetPropertyException("str", name, m_int->exports().error_get_pretty(e));
+    }
+
+    return value;
+}
+
 Object Object::get_prop_link(const char* name)
 {
     QemuError* e = nullptr;

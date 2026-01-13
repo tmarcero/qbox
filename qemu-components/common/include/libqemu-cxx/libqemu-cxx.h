@@ -254,6 +254,10 @@ public:
     void set_prop_link(const char* name, const Object& link);
     void set_prop_parse(const char* name, const char* value);
 
+    bool get_prop_bool(const char* name);
+    int get_prop_int(const char* name);
+    uint64_t get_prop_uint(const char* name);
+    const char* get_prop_str(const char* name);
     Object get_prop_link(const char* name);
 
     QemuObject* get_qemu_obj() const { return m_obj; }
