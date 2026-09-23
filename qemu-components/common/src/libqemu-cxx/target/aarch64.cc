@@ -41,6 +41,8 @@ void CpuAarch64::set_aarch64_mode(bool aarch64_mode)
     m_int->exports().cpu_aarch64_set_aarch64_mode(m_obj, aarch64_mode);
 }
 
+void CpuAarch64::set_wyvern_features() { m_int->exports().cpu_aarch64_set_wyvern_features(m_obj); }
+
 void ArmNvic::add_cpu_link() { m_int->exports().arm_nvic_add_cpu_link(m_obj); }
 
 } // namespace qemu

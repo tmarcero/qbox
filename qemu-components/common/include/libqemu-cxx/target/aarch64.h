@@ -46,6 +46,7 @@ public:
     CpuAarch64(const Object& o): CpuArm(o) {}
 
     void set_aarch64_mode(bool aarch64_mode);
+    void set_wyvern_features();
 };
 
 class ArmNvic : public Device
